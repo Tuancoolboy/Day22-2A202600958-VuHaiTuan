@@ -18,6 +18,7 @@ dependencies = [
     "matplotlib>=3.9,<4.0",
     "pandas>=2.2,<3.0",
     "pyarrow>=17,<22",
+    "Pillow>=10,<12",
     "llama-cpp-python>=0.3,<1.0",
     "lm-eval[ifeval,math]>=0.4.5,<1.0",
     "jupyterlab>=4.3,<5.0",

@@ -1,5 +1,7 @@
 # Day 22 — DPO/ORPO Alignment Lab (Track 3)
 
+**Student:** Vũ Hải Tuấn · **MSSV:** 2A202600958
+
 Lab cho **AICB-P2T3 · Ngày 22 · DPO/ORPO Alignment — From SFT to Preference Learning**.
 Build SFT-mini checkpoint → train DPO adapter → compare SFT-only vs SFT+DPO → merge + GGUF + serve.
 
@@ -57,8 +59,39 @@ make bench           NB6 (OPTIONAL) — IFEval/GSM8K/MMLU + 4-bar plot (~30 min 
 make pipeline-full   Core + optional NB5 + NB6
 make beta-sweep      Bonus rigor: re-run NB3 with β ∈ {0.05, 0.1, 0.5}
 make verify          scripts/verify.py — gatekeeper (core passes without NB5/NB6)
+make image-demo      Run the offline image prediction demo
 make clean           rm adapters/ data/pref/ gguf/ __pycache__
 ```
+
+---
+
+## Image Prediction Utility
+
+Repo này có thêm CLI dự đoán/phân tích ảnh cho phần thực hành của **Vũ Hải Tuấn - 2A202600958**.
+
+Chạy demo không cần ảnh, GPU, internet, hoặc model tải sẵn:
+
+```bash
+make image-demo
+python scripts/predict_image.py --demo --format json
+```
+
+Chạy với ảnh thật:
+
+```bash
+python scripts/predict_image.py path/to/image.jpg --format text
+```
+
+Mặc định script dùng engine `offline`: đọc ảnh, trích xuất đặc trưng thị giác như độ sáng, tương phản, saturation, edge strength, palette màu chủ đạo, rồi trả về nhãn dự đoán dạng heuristic. Nếu máy đã cài dependency và có model/cache Hugging Face, có thể dùng pretrained classifier:
+
+```bash
+python scripts/predict_image.py path/to/image.jpg \
+  --engine hf \
+  --model google/vit-base-patch16-224 \
+  --top-k 5
+```
+
+Ghi chú môi trường: PNG/JPG/WebP cần `Pillow`; nếu chưa cài Pillow, engine offline vẫn chạy được với `--demo` hoặc ảnh `.ppm` chuẩn P3/P6.
 
 ---
 

@@ -87,6 +87,9 @@ beta-sweep: ## Re-run NB3 with beta in {0.05, 0.1, 0.5}
 verify: ## Pre-submission gatekeeper — checks artifacts + REFLECTION edited
 	@$(PY) scripts/verify.py
 
+image-demo: ## Run the offline image prediction demo
+	@$(PY) scripts/predict_image.py --demo --format text
+
 lab: ## Open Jupyter Lab (laptop only)
 	@$(JUPYTEXT) --to notebook --update notebooks/*.py 2>/dev/null || true
 	@$(JUPYTER) lab --notebook-dir=notebooks --ServerApp.token='' --no-browser
@@ -103,4 +106,4 @@ clean: ## Wipe adapters/, data/pref/, gguf/, __pycache__
 clean-all: clean ## Wipe everything including venv + HF cache
 	rm -rf $(VENV) ~/.cache/huggingface/hub
 
-.PHONY: help setup smoke sft data dpo eval deploy bench pipeline pipeline-full beta-sweep verify lab test clean clean-all
+.PHONY: help setup smoke sft data dpo eval deploy bench pipeline pipeline-full beta-sweep verify image-demo lab test clean clean-all

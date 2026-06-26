@@ -1,9 +1,10 @@
 # Reflection — Lab 22 (DPO/ORPO Alignment)
 
-**Tên:** _<Họ Tên>_
+**Tên:** Vũ Hải Tuấn
+**MSSV:** 2A202600958
 **Cohort:** _<A20-K1 / A20-K2 / ...>_
-**Tier đã chạy:** _<T4 | BIGGPU | both>_
-**Date:** _<YYYY-MM-DD>_
+**Tier đã chạy:** Chưa chạy DPO local; repo đã bổ sung image prediction utility
+**Date:** 2026-06-26
 
 ---
 

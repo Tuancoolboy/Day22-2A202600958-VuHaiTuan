@@ -18,6 +18,7 @@ datasets>=3.1,<4.0
 matplotlib>=3.9,<4.0
 pandas>=2.2,<3.0
 pyarrow>=17,<22                         # parquet for data/pref/
+Pillow>=10,<12                          # PNG/JPG loading for image prediction utility
 
 # ── Local serving (notebook 05) ───────────────────────────────
 # llama-cpp-python compiles llama.cpp inside the wheel — lets us smoke-test
