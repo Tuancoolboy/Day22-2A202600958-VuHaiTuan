@@ -23,6 +23,8 @@
 import os
 from pathlib import Path
 
+os.environ.setdefault("UNSLOTH_RETURN_LOGITS", "1")
+
 COMPUTE_TIER = os.environ.get("COMPUTE_TIER", "T4").upper()
 
 if COMPUTE_TIER == "T4":
@@ -88,6 +90,13 @@ model, tokenizer = FastLanguageModel.from_pretrained(
 )
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
+if tokenizer.chat_template is None:
+    tokenizer.chat_template = (
+        "{% for message in messages %}"
+        "<|im_start|>{{ message['role'] }}\n{{ message['content'] }}<|im_end|>\n"
+        "{% endfor %}"
+        "{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}"
+    )
 
 # Load SFT adapter on top of base
 model = PeftModel.from_pretrained(model, str(SFT_PATH), is_trainable=True)
@@ -143,6 +152,8 @@ dpo_config = DPOConfig(
     fp16=not torch.cuda.is_bf16_supported(),
     seed=42,
     loss_type="sigmoid",         # DPO standard (alternatives: ipo, hinge, kto)
+    dataset_num_proc=1,          # Modal/Colab: avoid fragile multiprocessing map workers
+    dataloader_num_workers=0,
     report_to="none",
 )
 

@@ -40,8 +40,8 @@ def test_colab_notebooks_are_valid_json():
 
 def test_trainer_uses_processing_class_not_tokenizer():
     # TRL >= 0.13 removed the `tokenizer=` arg in favour of `processing_class=`.
-    # With the requirements pin `trl>=0.12,<0.20` a fresh install resolves to
-    # 0.19.x, where `DPOTrainer/SFTTrainer(tokenizer=...)` raises TypeError.
+    # The current requirements pin `trl==0.19.1`, where
+    # `DPOTrainer/SFTTrainer(tokenizer=...)` raises TypeError.
     targets = [
         "notebooks/01_sft_mini.py",
         "notebooks/03_dpo_train.py",

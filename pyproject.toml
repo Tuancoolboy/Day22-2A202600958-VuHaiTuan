@@ -8,9 +8,9 @@ readme = "README.md"
 # T4 baseline (mirrors requirements.txt). `uv pip install -e .` is faster
 # than venv+pip; both work.
 dependencies = [
-    "unsloth>=2025.10,<2026.5",
-    "transformers>=4.46,<5.0",
-    "trl>=0.12,<0.20",
+    "unsloth[colab-new]==2026.6.9",
+    "transformers>=4.51.3,<5.0",
+    "trl==0.19.1",
     "peft>=0.13,<1.0",
     "accelerate>=1.1,<2.0",
     "bitsandbytes>=0.44,<1.0",

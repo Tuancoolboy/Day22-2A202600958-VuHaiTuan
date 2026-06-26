@@ -20,6 +20,8 @@ REPO = Path(__file__).resolve().parent.parent
 
 
 def main():
+    os.environ.setdefault("UNSLOTH_RETURN_LOGITS", "1")
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--beta", type=float, default=0.1)
     parser.add_argument("--lr", type=float, default=5e-7)
@@ -58,6 +60,13 @@ def main():
     )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+    if tokenizer.chat_template is None:
+        tokenizer.chat_template = (
+            "{% for message in messages %}"
+            "<|im_start|>{{ message['role'] }}\n{{ message['content'] }}<|im_end|>\n"
+            "{% endfor %}"
+            "{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}"
+        )
 
     model = PeftModel.from_pretrained(model, args.sft_path, is_trainable=True)
     model = FastLanguageModel.get_peft_model(
@@ -86,6 +95,8 @@ def main():
         fp16=not torch.cuda.is_bf16_supported(),
         seed=42,
         loss_type="sigmoid",
+        dataset_num_proc=1,
+        dataloader_num_workers=0,
         report_to="none",
     )
 

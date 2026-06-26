@@ -3,11 +3,12 @@
 # allowing wheels for new Python versions.
 
 # ── Core training stack ───────────────────────────────────────
-# Unsloth bundles patched transformers + bitsandbytes + xformers — its version
-# pin is what locks the Unsloth + TRL compatibility matrix. Bump together.
-unsloth>=2025.10,<2026.5                # patched kernels for 7B-on-T4
-transformers>=4.46,<5.0
-trl>=0.12,<0.20                         # DPOTrainer + DPOConfig surface
+# Unsloth bundles patched transformers + bitsandbytes + xformers. Modal/Colab
+# currently resolve Unsloth 2026.6.x, whose unsloth-zoo dependency rejects
+# older TRL pins. Keep these two in sync.
+unsloth[colab-new]==2026.6.9             # patched kernels for 7B-on-T4
+transformers>=4.51.3,<5.0
+trl==0.19.1                              # DPOTrainer + DPOConfig surface
 peft>=0.13,<1.0
 accelerate>=1.1,<2.0
 bitsandbytes>=0.44,<1.0                 # NF4 + 8-bit optim

@@ -41,7 +41,8 @@ else:  # BIGGPU
     PER_DEVICE_BATCH = 2
     GRAD_ACCUM = 4
 
-SFT_DATASET = os.environ.get("SFT_DATASET", "5CD-AI/Vietnamese-alpaca-cleaned")
+DEFAULT_SFT_DATASET = "bkai-foundation-models/vi-alpaca"
+SFT_DATASET = os.environ.get("SFT_DATASET", DEFAULT_SFT_DATASET)
 SFT_SLICE = 1000
 NUM_EPOCHS = 1
 
@@ -85,6 +86,15 @@ if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
     print("Set tokenizer.pad_token = eos_token")
 
+if tokenizer.chat_template is None:
+    tokenizer.chat_template = (
+        "{% for message in messages %}"
+        "<|im_start|>{{ message['role'] }}\n{{ message['content'] }}<|im_end|>\n"
+        "{% endfor %}"
+        "{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}"
+    )
+    print("Set fallback ChatML tokenizer.chat_template")
+
 # %%
 model = FastLanguageModel.get_peft_model(
     model,
@@ -106,13 +116,21 @@ print(f"Trainable params: {sum(p.numel() for p in model.parameters() if p.requir
 # %% [markdown]
 # ## 2. Load + format VN Alpaca slice
 #
-# `5CD-AI/Vietnamese-alpaca-cleaned` is a 50k-row VN Alpaca translation. Lab 21
+# `bkai-foundation-models/vi-alpaca` is a 50k-row VN Alpaca translation. Lab 21
 # uses 1k slice for the demo run; we match that exactly so reward gap is comparable.
 
 # %%
 from datasets import load_dataset
 
-ds = load_dataset(SFT_DATASET, split=f"train[:{SFT_SLICE}]")
+try:
+    ds = load_dataset(SFT_DATASET, split=f"train[:{SFT_SLICE}]")
+except Exception as exc:
+    if SFT_DATASET == DEFAULT_SFT_DATASET:
+        raise
+    print(f"Could not load SFT_DATASET={SFT_DATASET!r}: {exc}")
+    print(f"Falling back to {DEFAULT_SFT_DATASET!r}")
+    SFT_DATASET = DEFAULT_SFT_DATASET
+    ds = load_dataset(SFT_DATASET, split=f"train[:{SFT_SLICE}]")
 print(f"Loaded {len(ds)} rows. Columns: {ds.column_names}")
 print(f"\nFirst row:\n{ds[0]}")
 
