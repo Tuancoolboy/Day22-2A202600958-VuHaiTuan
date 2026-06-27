@@ -72,16 +72,20 @@ assert torch.cuda.is_available(), "DPO needs a CUDA GPU. See HARDWARE-GUIDE.md."
 # ## 1. Load policy + reference (the VRAM story)
 #
 # **Critical:** DPO scores each answer under the policy (trainable) AND a frozen
-# reference. With PEFT we do **not** load a second model -- TRL toggles the LoRA
-# adapter *off* to get the reference forward pass on the same 4-bit base. The
-# extra VRAM vs SFT comes from two forward passes + holding chosen AND rejected
-# sequences, not from a second copy of the weights.
+# reference. With PEFT we do **not** load a second base model -- TRL switches
+# between two LoRA adapters on the same 4-bit base: the train adapter and a
+# frozen SFT reference adapter. The extra VRAM vs SFT comes from two forward
+# passes + holding chosen AND rejected sequences, not from a second copy of the
+# base weights.
 
 # %%
 from unsloth import FastLanguageModel
 from peft import PeftModel
 
-# Policy — gets new DPO LoRA adapter on top of SFT LoRA
+TRAIN_ADAPTER = "default"
+REF_ADAPTER = "reference"
+
+# Policy starts from the SFT LoRA adapter.
 model, tokenizer = FastLanguageModel.from_pretrained(
     model_name=BASE_MODEL,
     max_seq_length=MAX_LEN,
@@ -100,33 +104,20 @@ if tokenizer.chat_template is None:
 
 # Load SFT adapter on top of base
 model = PeftModel.from_pretrained(model, str(SFT_PATH), is_trainable=True)
-print(f"Policy: {model.__class__.__name__} with SFT adapter loaded")
+model.load_adapter(str(SFT_PATH), adapter_name=REF_ADAPTER, is_trainable=False)
+model.set_adapter(TRAIN_ADAPTER)
+print(f"Policy: {model.__class__.__name__} with train adapter '{TRAIN_ADAPTER}' and frozen ref '{REF_ADAPTER}'")
 
 # %%
-# Wrap policy with NEW LoRA adapter for DPO updates (don't merge SFT — keep stacked)
-# Unsloth re-applies LoRA on top of the existing PeftModel.
-model = FastLanguageModel.get_peft_model(
-    model,
-    r=16,
-    lora_alpha=32,
-    lora_dropout=0.0,
-    bias="none",
-    target_modules=[
-        "q_proj", "k_proj", "v_proj", "o_proj",
-        "gate_proj", "up_proj", "down_proj",
-    ],
-    use_gradient_checkpointing="unsloth",
-    random_state=42,
-    use_rslora=False,
-    loftq_config=None,
-)
+# DPO updates the train copy of the SFT adapter. TRL switches to REF_ADAPTER
+# for reference log-probs, avoiding nested PEFT adapters and extra base weights.
 print(f"Trainable params (DPO LoRA): {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
 
 # %% [markdown]
-# > **Why no separate `ref_model=` argument?** Modern TRL (≥ 0.12) auto-detects
-# > PEFT models and uses the *base model without the adapter* as the reference.
-# > That's the same memory layout: 1 base + 2 adapter sets in VRAM. No deepcopy
-# > needed.
+# > **Why no separate `ref_model=` argument?** TRL 0.19 can switch between two
+# > adapters on the same PEFT model. The train adapter starts from SFT and gets
+# > updated by DPO; the frozen reference adapter stays at the original SFT
+# > checkpoint. This is the correct DPO reference without loading a second base.
 
 # %% [markdown]
 # ## 2. Build DPOConfig (deck §5.2 hyperparameters)
@@ -152,6 +143,8 @@ dpo_config = DPOConfig(
     fp16=not torch.cuda.is_bf16_supported(),
     seed=42,
     loss_type="sigmoid",         # DPO standard (alternatives: ipo, hinge, kto)
+    model_adapter_name=TRAIN_ADAPTER,
+    ref_adapter_name=REF_ADAPTER,
     dataset_num_proc=1,          # Modal/Colab: avoid fragile multiprocessing map workers
     dataloader_num_workers=0,
     report_to="none",
@@ -177,7 +170,7 @@ from trl import DPOTrainer
 
 trainer = DPOTrainer(
     model=model,
-    ref_model=None,                # auto-derived from PEFT base
+    ref_model=None,                # TRL swaps to REF_ADAPTER for reference log-probs
     args=dpo_config,
     train_dataset=pref_ds,
     processing_class=tokenizer,
@@ -279,7 +272,8 @@ if chosen_col and rejected_col and len(logs) >= 5:
 # ## 6. Save adapter
 
 # %%
-trainer.model.save_pretrained(str(DPO_OUT))
+trainer.model.set_adapter(TRAIN_ADAPTER)
+trainer.model.save_pretrained(str(DPO_OUT), selected_adapters=[TRAIN_ADAPTER])
 tokenizer.save_pretrained(str(DPO_OUT))
 print(f"Saved DPO adapter to {DPO_OUT}")
 

@@ -15,7 +15,10 @@ echo "[colab] Stack: unsloth + trl + peft + bitsandbytes + llama-cpp-python"
 echo
 
 # ── 1. Auto-detect tier from torch.cuda ─────────────────────────────────
-TIER=$(python - <<'PY'
+if [ "${LOW_MEM:-0}" = "1" ] || [ "${COMPUTE_TIER:-}" = "LIGHT" ]; then
+  TIER="LIGHT"
+else
+  TIER=$(python - <<'PY'
 import torch
 if not torch.cuda.is_available():
     print("CPU")
@@ -24,6 +27,7 @@ else:
     print("BIGGPU" if gb >= 22 else "T4")
 PY
 )
+fi
 echo "[colab] Detected tier: $TIER"
 
 case "$TIER" in
@@ -34,15 +38,27 @@ case "$TIER" in
   T4)
     echo "[colab] T4 (or similar 16 GB) tier — using Qwen2.5-3B"
     ;;
+  LIGHT)
+    echo "[colab] Light tier — using Qwen2.5-0.5B for low RAM / fast runs"
+    ;;
   BIGGPU)
     echo "[colab] BigGPU (A100 / L4) tier — using Qwen2.5-7B"
     ;;
 esac
 
 # ── 2. Install deps ─────────────────────────────────────────────────────
-# Colab pre-installs torch + transformers; let pip resolve compatible versions.
-# Unsloth's installer picks the right CUDA wheel.
-pip install -q -r requirements.txt
+# Colab pre-installs torch. LIGHT avoids Unsloth/llama/lm-eval to reduce install
+# time and dependency breakage on small runtimes.
+if [ "$TIER" = "LIGHT" ]; then
+  pip install -q \
+    "transformers>=4.51.3,<5.0" "trl==0.19.1" "peft>=0.13,<1.0" \
+    "datasets>=3.1,<4.0" "accelerate>=1.1,<2.0" \
+    "matplotlib>=3.9,<4.0" "pandas>=2.2,<3.0" "pyarrow>=17,<22" \
+    "jupytext>=1.16,<2.0"
+else
+  # Unsloth's installer picks the right CUDA wheel.
+  pip install -q -r requirements.txt
+fi
 
 if [ "$TIER" = "BIGGPU" ]; then
   echo "[colab] Installing BigGPU extras (vllm, flash-attn) — may take 3-5 min"
@@ -68,11 +84,13 @@ In Colab, you can now either:
 
     1. Open notebooks/01_sft_mini.py — Jupytext will convert on first edit
     2. Or run the stitched single-file Colab notebook:
+         - Light tier:  colab/Lab22_DPO_Light.ipynb
          - T4 tier:     colab/Lab22_DPO_T4.ipynb
          - BigGPU tier: colab/Lab22_DPO_BigGPU.ipynb
     3. Or use the make targets:
 
-         !make smoke           # quick verification
+         !make pipeline-lite   # low-memory run (~fast, 0.5B model)
+         !make smoke           # full-stack verification (T4/BigGPU install)
          !make pipeline        # full run (~45 min T4 / ~30 min A100)
 
 Tip: read VIBE-CODING.md before starting NB1.

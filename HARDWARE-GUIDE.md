@@ -1,6 +1,6 @@
 # Hardware Guide — Pick Your Tier
 
-> **DPO không phải SFT.** DPO load *cả policy và reference model* trong memory cùng lúc → ~2× SFT VRAM. Một 7B QLoRA SFT vừa 10 GB; 7B QLoRA DPO cần ~18-20 GB. Đó là lý do hardware guide cho lab này khác Day 21.
+> **DPO không phải SFT.** DPO phải chấm cả policy và reference nên activation memory cao hơn SFT. Đường Unsloth/PEFT trong lab dùng 2 adapter trên cùng base 4-bit; đường LIGHT còn nhỏ hơn nữa vì dùng model 0.5B và tiny slices. Đó là lý do hardware guide cho lab này khác Day 21.
 
 Pick a tier, model size, and notebook variant that **actually runs** on your hardware.
 
@@ -10,6 +10,7 @@ DPO = policy (trainable) + reference (frozen) + activations + KV cache + optimiz
 
 | Base model | Mode | Policy | Reference | Activations | Optim | Total VRAM | Where it fits |
 |---|---|---:|---:|---:|---:|---:|---|
+| Qwen2.5-0.5B | LoRA fp16/bf16 | 1 GB | shared adapter path | <1 GB | <1 GB | **~2-3 GB** | LIGHT mode, low-RAM GPU runtimes |
 | Qwen2.5-1.5B | LoRA + 4bit | 1.0 GB | 1.0 GB | 2 GB | 1 GB | **~5 GB** | Any laptop GPU, free Colab T4 |
 | Qwen2.5-3B | LoRA + 4bit | 2.0 GB | 2.0 GB | 4 GB | 1.5 GB | **~10 GB** | RTX 3060 12GB, free Colab T4 (16GB) ✓ |
 | Qwen2.5-7B | LoRA + 4bit | 4.5 GB | 4.5 GB | 6 GB | 3 GB | **~18 GB** | A100 40GB, L4 24GB, RTX 3090/4090 |
@@ -21,6 +22,7 @@ DPO = policy (trainable) + reference (frozen) + activations + KV cache + optimiz
 
 | Available compute | Recommended tier | Notebook variant |
 |---|---|---|
+| A100/T4/L4 but only 8 GB system RAM or 4 CPU cores | **LIGHT** | `make pipeline-lite` or `colab/Lab22_DPO_Light.ipynb` |
 | Free Colab T4 (16 GB) | **T4** | `colab/Lab22_DPO_T4.ipynb` (badge in README) |
 | Kaggle T4×2 (2 × 16 GB) | T4 (use single GPU) | `colab/Lab22_DPO_T4.ipynb` |
 | Colab Pro L4 (22.5 GB) | **BigGPU** | `colab/Lab22_DPO_BigGPU.ipynb` |
@@ -35,6 +37,8 @@ DPO = policy (trainable) + reference (frozen) + activations + KV cache + optimiz
 ```
 Do you have a usable NVIDIA GPU?
 ├─ No → Free Colab T4 (Runtime → Change runtime type → T4 GPU). Default.
+├─ Yes, but system RAM/CPU is tight or you want the safest fast path
+│   └─ LOW_MEM=1 COMPUTE_TIER=LIGHT make pipeline-lite → Qwen2.5-0.5B, tiny slices
 ├─ Yes, ≥ 24 GB VRAM (3090/4090/A100/L4)
 │   └─ COMPUTE_TIER=BIGGPU → Qwen2.5-7B faithful path, deck-aligned numbers
 └─ Yes, 12-23 GB VRAM (3060/3070/4060/3080)
@@ -50,11 +54,11 @@ If `make smoke` OOMs on your tier, the next move is:
 
 ## 4. Disk space
 
-- Model weights: 2 GB (3B) or 5 GB (7B) — auto-downloaded by Unsloth
+- Model weights: ~1 GB (LIGHT 0.5B), 2 GB (3B), or 5 GB (7B)
 - HF cache: ~10 GB total during a run (model + tokenizer + dataset)
 - Adapters: ~50 MB each (sft-mini + dpo + optional orpo)
 - GGUF Q4_K_M output: 1.5 GB (3B) or 4 GB (7B)
-- **Plan for 25 GB free** before starting. Colab gives 100 GB so this is only a concern locally.
+- **Plan for 10 GB free** for LIGHT, 25 GB free for T4/BigGPU. Colab gives 100 GB so this is only a concern locally.
 
 ## 5. Network
 

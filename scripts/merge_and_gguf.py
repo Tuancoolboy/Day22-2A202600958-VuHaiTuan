@@ -20,7 +20,6 @@ REPO = Path(__file__).resolve().parent.parent
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--sft-path", default=str(REPO / "adapters" / "sft-mini"))
     parser.add_argument("--dpo-path", default=str(REPO / "adapters" / "dpo"))
     parser.add_argument("--merged-output", default=str(REPO / "adapters" / "merged-fp16"))
     parser.add_argument("--gguf-output", default=str(REPO / "gguf"))
@@ -47,15 +46,15 @@ def main():
     import gc
     import torch
 
-    # Step 1: load + stack SFT then DPO
+    # Step 1: load the SFT+DPO adapter from NB3.
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=base, max_seq_length=max_len, dtype=None, load_in_4bit=True,
     )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    model = PeftModel.from_pretrained(model, args.sft_path)
-    print("Loaded SFT-mini adapter")
+    model = PeftModel.from_pretrained(model, args.dpo_path)
+    print("Loaded SFT+DPO adapter")
 
     # Step 2: save merged FP16
     model.save_pretrained_merged(

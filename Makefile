@@ -1,5 +1,5 @@
 ## Day 22 — DPO/ORPO Alignment lab.
-## Tier-aware via COMPUTE_TIER (T4 default, BIGGPU optional).
+## Tier-aware via COMPUTE_TIER (LIGHT low-memory, T4 default, BIGGPU optional).
 
 VENV     := .venv
 PY       := $(VENV)/bin/python
@@ -68,6 +68,11 @@ bench: ## NB6 (OPTIONAL/bonus) — IFEval/GSM8K/MMLU + 4-bar plot (~30 min T4)
 
 pipeline: sft data dpo eval ## Run the 4 CORE notebooks (NB1-NB4, ~30 min T4)
 
+pipeline-lite: ## LOW-MEM — 0.5B end-to-end run for 8GB RAM / 4-core machines
+	@LOW_MEM=1 COMPUTE_TIER=LIGHT $(PY) scripts/pipeline_light.py
+
+lite: pipeline-lite ## Alias for pipeline-lite
+
 pipeline-full: sft data dpo eval deploy bench ## Core + OPTIONAL NB5 (GGUF) + NB6 (benchmark)
 
 # ─────────────────────────────────────────────────────────────
@@ -99,6 +104,7 @@ test: ## Run pytest (smoke tests only — no full training)
 
 clean: ## Wipe adapters/, data/pref/, gguf/, __pycache__
 	rm -rf adapters/sft-mini adapters/dpo adapters/dpo-b* adapters/orpo \
+	       adapters/sft-mini-light-checkpoints adapters/dpo-light-checkpoints \
 	       data/pref/ gguf/ \
 	       notebooks/*.ipynb notebooks/.ipynb_checkpoints \
 	       __pycache__ scripts/__pycache__
@@ -106,4 +112,4 @@ clean: ## Wipe adapters/, data/pref/, gguf/, __pycache__
 clean-all: clean ## Wipe everything including venv + HF cache
 	rm -rf $(VENV) ~/.cache/huggingface/hub
 
-.PHONY: help setup smoke sft data dpo eval deploy bench pipeline pipeline-full beta-sweep verify image-demo lab test clean clean-all
+.PHONY: help setup smoke sft data dpo eval deploy bench pipeline pipeline-lite lite pipeline-full beta-sweep verify image-demo lab test clean clean-all

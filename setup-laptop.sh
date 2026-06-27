@@ -71,8 +71,7 @@ print(f"[laptop] VRAM: {gb:.1f} GB")
 print(f"[laptop] CUDA capability: {dev.major}.{dev.minor}")
 
 if gb < 12:
-    print("[laptop] WARNING: < 12 GB VRAM. DPO will OOM on 3B model.")
-    print("[laptop]          Recommend free Colab T4 instead.")
+    print("[laptop] WARNING: < 12 GB VRAM. Use LOW_MEM=1 COMPUTE_TIER=LIGHT make pipeline-lite.")
 elif gb < 24:
     print("[laptop] T4 tier (3B model) viable. Recommended COMPUTE_TIER=T4.")
 else:
@@ -96,6 +95,7 @@ cat <<EOF
 
     source .venv/bin/activate
     make smoke           # 2-step training run on each notebook to verify
+    make pipeline-lite   # lowest-memory path: 0.5B, tiny slices, no Unsloth DPO
     make pipeline        # full pipeline: sft → data → dpo → eval → deploy
 
 Tip: read VIBE-CODING.md before starting NB1 — 5-10 min, tells you which

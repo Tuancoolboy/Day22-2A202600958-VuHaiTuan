@@ -54,3 +54,41 @@ def test_trainer_uses_processing_class_not_tokenizer():
         f"{offenders} still pass tokenizer=tokenizer to a TRL trainer; "
         f"use processing_class=tokenizer (tokenizer= removed in trl>=0.13)."
     )
+
+
+def test_dpo_uses_frozen_sft_reference_adapter():
+    # DPO should compare the trainable SFT-started adapter against the frozen
+    # SFT checkpoint, not the raw base model and not a nested PEFT adapter.
+    targets = [
+        "notebooks/03_dpo_train.py",
+        "scripts/train_dpo.py",
+        "colab/Lab22_DPO_T4.ipynb",
+        "colab/Lab22_DPO_BigGPU.ipynb",
+    ]
+    missing = []
+    for target in targets:
+        text = (REPO / target).read_text(encoding="utf-8")
+        if (
+            "model_adapter_name" not in text
+            or "ref_adapter_name" not in text
+            or "selected_adapters" not in text
+        ):
+            missing.append(target)
+        assert "auto-derived from PEFT base" not in text
+        assert "base model without the adapter" not in text
+    assert not missing, f"{missing} do not configure/save the train adapter explicitly for DPO"
+
+
+def test_merge_uses_dpo_adapter_not_sft_only():
+    targets = [
+        "notebooks/05_merge_deploy_gguf.py",
+        "scripts/merge_and_gguf.py",
+        "colab/Lab22_DPO_T4.ipynb",
+        "colab/Lab22_DPO_BigGPU.ipynb",
+    ]
+    offenders = []
+    for target in targets:
+        text = (REPO / target).read_text(encoding="utf-8")
+        if "PeftModel.from_pretrained(model, str(SFT_PATH))" in text or "args.sft_path" in text:
+            offenders.append(target)
+    assert not offenders, f"{offenders} still merge/load SFT-only instead of the DPO adapter"
