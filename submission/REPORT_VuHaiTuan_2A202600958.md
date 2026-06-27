@@ -1,74 +1,140 @@
-# Báo cáo kết quả Lab 22 — Vu Hai Tuan — 2A202600958
+# Bao cao Lab 22 DPO Alignment — Vu Hai Tuan — 2A202600958
 
-**Sinh viên:** Vu Hai Tuan  
+**Sinh vien:** Vu Hai Tuan  
 **MSSV:** 2A202600958  
-**Ngày:** 26/06/2026  
-**Chủ đề:** DPO/ORPO Alignment và tiện ích image prediction trong Colab 22
+**Ngay chay:** 27/06/2026  
+**Notebook:** `Lab22_DPO_Light.ipynb`  
+**Che do:** LIGHT / LOW_MEM
 
-## 1. Mục tiêu
+## 1. Tom tat
 
-Bài Lab 22 xây dựng pipeline alignment cho mô hình ngôn ngữ: tạo SFT-mini checkpoint, chuẩn bị dữ liệu preference, train DPO adapter, so sánh SFT-only với SFT+DPO, sau đó có thể merge sang GGUF và benchmark. Repo cũng bổ sung phần ảnh ở `scripts/predict_image.py` cho bài thực hành của Vu Hai Tuan.
+Em da chay thanh cong pipeline Lab 22 theo ban Light de giam RAM, tranh loi kernel va dam bao notebook chay het. Ban Light khong dung model 7B/3B ma dung `Qwen/Qwen2.5-0.5B-Instruct`, LoRA rank 8, SFT slice 300 mau va preference slice 500 cap. Pipeline da tao SFT adapter, preference data, DPO adapter, bang so sanh 8 prompt, merged-light model va cac screenshot trong `submission/screenshots/`.
 
-## 2. Kết quả đọc code Colab 22
+## 2. Moi truong va cau hinh
 
-Colab 22 gồm 6 giai đoạn:
-
-| Giai đoạn | Nội dung |
+| Hang muc | Gia tri |
 |---|---|
-| NB1 | SFT-mini bằng Unsloth + LoRA, dataset `bkai-foundation-models/vi-alpaca` |
-| NB2 | Format UltraFeedback thành `prompt/chosen/rejected` |
-| NB3 | Train DPO bằng `DPOTrainer`, `beta=0.1`, `lr=5e-7` |
-| NB4 | So sánh 8 prompt giữa SFT-only và SFT+DPO |
-| NB5 | Merge/export GGUF Q4_K_M |
-| NB6 | Benchmark IFEval/GSM8K/MMLU/AlpacaEval-lite |
+| GPU | NVIDIA A100-SXM4-80GB |
+| CUDA | 13.0 |
+| Base model | `Qwen/Qwen2.5-0.5B-Instruct` |
+| dtype | `torch.bfloat16` |
+| Max length | 384 |
+| Max prompt length | 192 |
+| SFT slice | 300 |
+| Preference slice | 500 |
+| Batch | 1 |
+| Gradient accumulation | 4 |
 
-Code có logic quan trọng để plot riêng `rewards/chosen`, `rewards/rejected` và reward gap. Đây là điểm đúng vì chỉ nhìn reward gap có thể bỏ sót hiện tượng likelihood displacement.
+Anh minh chung GPU: `submission/screenshots/01-setup-gpu.png`.
 
-## 3. Tình trạng artifact
+## 3. Ket qua SFT
 
-Workspace hiện chưa có artifact train thật như `adapters/sft-mini`, `adapters/dpo`, `data/pref/train.parquet`, `data/eval/side_by_side.jsonl` hoặc GGUF. Các ảnh trong `submission/screenshots` đang là dry-run/placeholder, có ghi rõ cần chạy notebook thật để lấy số liệu. Vì vậy chưa thể kết luận loss, reward gap, win-rate hoặc benchmark của model.
-
-## 4. Kết quả phần ảnh
-
-Phần ảnh trong repo là image prediction utility, không phải diffusion sinh ảnh. Demo mode tự tạo một ảnh mẫu 96x64 để test pipeline.
-
-Lệnh đã chạy:
-
-```bash
-python scripts/predict_image.py --demo --format json --top-k 5
-make image-demo
-python -m pytest scripts/test_predict_image.py -q
-```
-
-Kết quả chính:
-
-| Metric | Giá trị |
-|---|---|
-| Engine | `offline-visual` |
-| Image size | `96x64` |
-| Aspect ratio | `1.5` |
-| Mean RGB | `(147, 148, 118)` |
-| Brightness | `0.5707` |
-| Contrast | `0.1249` |
-| Saturation | `0.5941` |
-| Edge strength | `0.005` |
-
-Top prediction:
-
-| Rank | Label | Confidence |
-|---:|---|---:|
-| 1 | `colorful detailed scene` | `1.00` |
-| 2 | `plain background or low-detail image` | `0.50` |
-| 3 | `general photo or graphic` | `0.49` |
-| 4 | `bright image or high-key scene` | `0.41` |
-| 5 | `warm-toned object or indoor scene` | `0.34` |
-
-Pytest result:
+SFT-mini duoc train tren dataset `bkai-foundation-models/vi-alpaca`. Adapter duoc luu tai:
 
 ```text
-2 passed in 0.14s
+/content/lab22-light/adapters/sft-mini-light
 ```
 
-## 5. Kết luận
+Ket qua:
 
-Code Lab 22 đã có cấu trúc đầy đủ cho pipeline DPO alignment và có phần image prediction chạy được local. Phần kết quả chắc chắn hiện tại là image utility đã pass test và trả prediction hợp lệ. Phần DPO/GGUF/benchmark cần chạy Colab 22 trên GPU thật để sinh artifact và thay ảnh placeholder bằng kết quả thật trước khi nộp.
+| Chi so | Gia tri |
+|---|---:|
+| Trainable params | 4,399,104 |
+| Total params | 498,431,872 |
+| Trainable ratio | 0.8826% |
+| Final SFT loss | 1.3098 |
+
+Anh loss curve: `submission/screenshots/02-sft-loss.png`.
+
+## 4. Preference data va DPO
+
+Preference data duoc lay tu `argilla/ultrafeedback-binarized-preferences-cleaned`, cat 500 mau va format thanh `prompt/chosen/rejected`.
+
+DPO config chinh:
+
+| Tham so | Gia tri |
+|---|---:|
+| `beta` | 0.1 |
+| `learning_rate` | 5e-7 |
+| Epoch | 1 |
+| Batch | 1 |
+| Grad accumulation | 4 |
+| Final DPO loss | 0.6922 |
+
+DPO adapter duoc luu tai:
+
+```text
+/content/lab22-light/adapters/dpo-light
+```
+
+Anh reward curves: `submission/screenshots/03-dpo-reward-curves.png`.
+
+Nhan xet: reward chosen/rejected dao dong quanh 0 va reward gap co bien do nho. Dieu nay cho thay DPO pipeline da chay thanh cong, nhung voi model 0.5B va 500 preference pairs thi alignment signal con yeu. Em khong khang dinh DPO cai thien ro rang; ket qua nen duoc xem la ban chay nhe de kiem tra pipeline.
+
+## 5. So sanh SFT-only va SFT+DPO
+
+Notebook chay 8 prompt gom 4 helpfulness va 4 safety. Anh bang so sanh:
+
+```text
+submission/screenshots/04-side-by-side-table.png
+```
+
+Ket qua dinh tinh:
+
+- Cac cau helpfulness co cau tra loi nhung con ngan va doi khi sai chi tiet.
+- Safety chua on dinh; mot so prompt nguy hiem van chua duoc tu choi dung muc.
+- SFT va DPO khac nhau nhe, chua co bang chung DPO thang ro rang.
+- Manual rubric hien de `tie` mac dinh, luu o `submission/screenshots/05-manual-rubric.png`.
+
+## 6. Merge va smoke test
+
+De giu ban Light nhe, em khong chay GGUF export. Notebook merge adapter thanh HuggingFace model nhe:
+
+```text
+/content/lab22-light/adapters/merged-light
+```
+
+Smoke prompt:
+
+```text
+Giai thich ngan gon (3 cau) cach thuat toan Bubble sort hoat dong.
+```
+
+Model sinh duoc cau tra loi tieng Viet ve Bubble sort. Anh minh chung:
+
+```text
+submission/screenshots/06-light-merged-smoke.png
+```
+
+## 7. Benchmark
+
+Benchmark nang bang lm-eval duoc skip trong Light mode de giam thoi gian va memory. Notebook van ghi summary:
+
+```text
+submission/screenshots/07-light-benchmark-summary.png
+```
+
+Thong tin summary:
+
+| Muc | Gia tri |
+|---|---|
+| Mode | light |
+| Base model | `Qwen/Qwen2.5-0.5B-Instruct` |
+| Num eval prompts | 8 |
+| Heavy benchmark | skipped |
+
+## 8. Artifact submission
+
+| File | Noi dung |
+|---|---|
+| `01-setup-gpu.png` | GPU A100 va runtime |
+| `02-sft-loss.png` | SFT loss curve |
+| `03-dpo-reward-curves.png` | Chosen/rejected reward va reward gap |
+| `04-side-by-side-table.png` | Bang so sanh 8 prompt |
+| `05-manual-rubric.png` | Manual rubric |
+| `06-light-merged-smoke.png` | Smoke test merged-light |
+| `07-light-benchmark-summary.png` | Benchmark summary Light |
+
+## 9. Ket luan
+
+Em da chay that ban Light cua Lab 22 va tao du artifact chinh cho huong nhe. Ket qua DPO loss 0.6922 va SFT loss 1.3098 cho thay pipeline training hoat dong. Tuy nhien model 0.5B va slice du lieu nho nen chat luong output con han che, DPO chua tao cai thien ro rang. Neu co them thoi gian/tai nguyen, buoc tiep theo la tang model len 1.5B/3B, tang preference slice, va chay judge/benchmark day du.
